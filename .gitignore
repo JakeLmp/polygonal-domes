@@ -2,3 +2,7 @@ env
 frames*
 
 *.gif
+
+module-test.ipynb
+
+*pycache*
