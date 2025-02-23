@@ -2,6 +2,7 @@ env
 frames*
 
 *.gif
+*.png
 
 module-test.ipynb
 
