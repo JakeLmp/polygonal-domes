@@ -54,6 +54,7 @@ class Dome:
 
         Raises:
             Exception: either side_length or radius are required, not neither or both.
+            ValueError: vertical_radius must be larger than sqrt(radius^2/4 + height^2)
         """
         
         # ----- MATH ATTRIBUTES ------
@@ -85,6 +86,11 @@ class Dome:
 
         # if not given, assign value later. For now we just need it to exist
         self.R_PRIME = vertical_radius if vertical_radius else None
+
+        if self.R_PRIME is not None:
+            min_vert_rad = np.sqrt(self.R**2/4 + self.H**2/4)
+            if self.R_PRIME < min_vert_rad:
+                raise ValueError(f"vertical_radius must be larger than sqrt(radius^2/4 + height^2) = {min_vert_rad}")
 
         # calculate locus for centre positions
         self.m, self.c = self._calc_locus(vertical_radius is not None)

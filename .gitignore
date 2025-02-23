@@ -4,6 +4,6 @@ frames*
 *.gif
 *.png
 
-module-test.ipynb
+test.ipynb
 
 *pycache*
