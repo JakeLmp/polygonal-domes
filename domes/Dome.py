@@ -1,5 +1,29 @@
 import numpy as np
 
+def rotation_matrix_x(theta):
+    return np.array([
+        [1, 0,              0            ],
+        [0, np.cos(theta), -np.sin(theta)],
+        [0, np.sin(theta),  np.cos(theta)]
+    ])
+
+def rotation_matrix_y(theta):
+    return np.array([
+        [ np.cos(theta), 0, np.sin(theta)],
+        [ 0,             1, 0            ],
+        [-np.sin(theta), 0, np.cos(theta)]
+    ])
+
+def rotation_matrix_z(theta):
+    return np.array([
+        [np.cos(theta), -np.sin(theta), 0],
+        [np.sin(theta),  np.cos(theta), 0],
+        [0,              0,             1]
+    ])
+
+def rotation_matrix(theta_x, theta_y, theta_z):
+    return rotation_matrix_z(theta_z) @ rotation_matrix_y(theta_y) @ rotation_matrix_x(theta_x)
+
 class Dome:
     def __init__(self,
                  nr_sides : int,
@@ -41,7 +65,7 @@ class Dome:
             self.R = self.SIDE_LEN/(2*np.sin(np.pi/self.NR_SIDES))
         elif radius is not None and side_length is None:
             self.R = radius
-            self.SIDE_LEN = self.R/(2*np.sin(np.pi/self.NR_SIDES))
+            self.SIDE_LEN = 2*self.R*np.sin(np.pi/self.NR_SIDES)
         else:
             raise Exception(f"Either side_length or radius is required, not neither or both (given: {side_length=} {radius=})")
 
@@ -70,7 +94,7 @@ class Dome:
             self.R_PRIME = self.R + self.c/self.m
             self.M2 = (-self.c/self.m, 0)
         else:
-            self.M2, _ = self._candidate_centres()
+            self.M2, _ = self._candidate_centres(RP=self.R_PRIME)
         
         # arc parameters
         self.T1 = np.asin((self.SIDE[1] - self.M2[1])/self.R_PRIME)
@@ -151,11 +175,11 @@ Dome
         c = MA[1] - m*MA[0]
 
         return m, c
-    
-    def _idx(self, i, j)-> int:
-        """Index mapping between angles and cartesian points"""
-        return i%self.NR_SIDES + self.NR_SIDES*j%(self.NR_SIDES*(self.NR_LAYERS+1))
 
+    def _idx(self, i: int, j: int) -> int:
+        """Index mapping used in creation of faces"""
+        return i%(self.NR_LAYERS+1) + j*(self.NR_LAYERS+1)%((self.NR_LAYERS+1)*self.NR_SIDES)
+    
     def _calc_vertices(self, angle_offset : float = 0) -> np.array:
         """Calculate vertices of the object"""
         alphas = np.linspace(angle_offset, 2*np.pi+angle_offset, self.NR_SIDES, endpoint=False)
@@ -163,13 +187,20 @@ Dome
         X, Y = np.meshgrid(alphas, betas)
         angles = np.array([X.flatten(), Y.flatten()]).T
         
-        # L = np.array([(R_prime*np.cos(i*td + t1) + M_vert[0], 
-        #                R_prime*np.sin(i*td + t1) + M_vert[1]) for i in range(NR_LAYERS+1)])
-
-        xyz = np.zeros((angles.shape[0], 3))
-        xyz[:, 0] = (self.R - self.R_PRIME*(1 - np.cos(angles[:,1])))*np.cos(angles[:,0])
-        xyz[:, 1] = (self.R - self.R_PRIME*(1 - np.cos(angles[:,1])))*np.sin(angles[:,0])
-        xyz[:, 2] = self.R_PRIME*np.sin(angles[:,1])
+        # single rib of vertical vertices
+        L = np.stack((self.R_PRIME*np.cos(betas) + self.M2[0],     # x
+                      np.zeros_like(betas),                        # y
+                      self.R_PRIME*np.sin(betas) + self.M2[1]),    # z
+                     axis = 1)
+        
+        # array to store vertices in
+        xyz = np.empty(shape=(0,3))
+                
+        # rotate rib for every angle in base polygon
+        for i, a in enumerate(alphas):
+            rotated = np.matvec(rotation_matrix_z(a), L)
+            xyz = np.concat((xyz, rotated),
+                            axis=0)
 
         return xyz
 
@@ -181,8 +212,8 @@ Dome
         polys = np.zeros((self.NR_SIDES*self.NR_LAYERS, 5, 3))
 
         k = 0
-        for j in range(self.NR_LAYERS):
-            for i in range(self.NR_SIDES):
+        for i in range(self.NR_LAYERS):
+            for j in range(self.NR_SIDES):
                 polys[k, 0, :] = self._verts[self._idx(i, j), :]
                 polys[k, 1, :] = self._verts[self._idx(i+1, j), :]
                 polys[k, 2, :] = self._verts[self._idx(i+1, j+1), :]
@@ -201,6 +232,7 @@ Dome
         self._verts = self._calc_vertices(angle)
         self._polys = self._calc_polys()
 
+    # TODO: fix for vertical_radius != None
     def pieces_template_2D(self,):
         S = 2*self.R_PRIME*np.sin(0.5*self.TD)  # vertical polygon side length
 
