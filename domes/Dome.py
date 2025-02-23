@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 def rotation_matrix_x(theta):
     return np.array([
@@ -32,6 +33,7 @@ class Dome:
                  radius : float = None,
                  height : float = None,
                  vertical_radius : float = None,
+                 equator : str = 'ridge',
                  ):
         """Create a dome-like object consisting of trapezoid faces.
         Dimensions are defined in terms of the (partial) regular polygons formed by the object in the x-y and x-z planes.
@@ -51,10 +53,14 @@ class Dome:
             vertical_radius (float, optional): circumscribed radius of vertical polygon. 
                                                If not given, value is set equal to radius.
                                                Defaults to None.
+            equator (str, optional): put the 'equator', i.e. the base plane, on a ridge or halfway on the bottom row of faces.
+                                     Options: ['ridge', 'face'].
+                                     Defaults to 'ridge'.
 
         Raises:
             Exception: either side_length or radius are required, not neither or both.
             ValueError: vertical_radius must be larger than 0.5*sqrt(radius^2 + height^2)
+            ValueError: equator argument value not recognised
         """
         
         # ----- MATH ATTRIBUTES ------
@@ -103,9 +109,26 @@ class Dome:
             self.M2, _ = self._candidate_centres(RP=self.R_PRIME)
         
         # arc parameters
-        self.T1 = np.asin((self.SIDE[1] - self.M2[1])/self.R_PRIME)
-        self.T2 = np.acos((self.TOP[0] - self.M2[0])/self.R_PRIME)
-        self.TD = (self.T2 - self.T1)/self.NR_LAYERS
+        match equator:
+            case 'ridge':
+                self.T1 = np.asin((self.SIDE[1] - self.M2[1])/self.R_PRIME)
+                self.T2 = np.acos((self.TOP[0] - self.M2[0])/self.R_PRIME)
+                self.TD = (self.T2 - self.T1)/self.NR_LAYERS
+            case 'face':
+                if vertical_radius is not None:
+                    warnings.warn("Setting equator to 'face' when also setting vertical_radius explicitly might result in unexpected behaviour.")
+                
+                alt_nr_layers = self.NR_LAYERS*2-1
+                q1 = np.asin((-self.TOP[1] - self.M2[1])/self.R_PRIME)
+                q2 = np.acos((self.TOP[0] - self.M2[0])/self.R_PRIME)
+                q = (q2 - q1)/alt_nr_layers
+
+                self.T1 = np.asin((self.SIDE[1] - self.M2[1])/self.R_PRIME)
+                self.T1 -= 0.5*q
+                self.T2 = np.acos((self.TOP[0] - self.M2[0])/self.R_PRIME) 
+                self.TD = (self.T2 - self.T1)/self.NR_LAYERS
+            case _:
+                raise ValueError(f"Equator argument value not recognised: '{equator}'.")
 
         # ----- RESULTING ATTRIBUTES -----
         self._verts = self._calc_vertices()
@@ -190,9 +213,7 @@ Dome
         """Calculate vertices of the object"""
         alphas = np.linspace(angle_offset, 2*np.pi+angle_offset, self.NR_SIDES, endpoint=False)
         betas = np.linspace(self.T1, self.T2, (self.NR_LAYERS+1), endpoint=True)
-        X, Y = np.meshgrid(alphas, betas)
-        angles = np.array([X.flatten(), Y.flatten()]).T
-        
+                
         # single rib of vertical vertices
         L = np.stack((self.R_PRIME*np.cos(betas) + self.M2[0],     # x
                       np.zeros_like(betas),                        # y
@@ -264,8 +285,6 @@ Dome
                                      [apo_1, -0.5*side_len_1]])
         return polys
 
-
-        
     
 if __name__ == '__main__':
     pass
