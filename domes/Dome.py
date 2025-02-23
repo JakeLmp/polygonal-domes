@@ -9,8 +9,30 @@ class Dome:
                  height : float = None,
                  vertical_radius : float = None,
                  ):
+        """Create a dome-like object consisting of trapezoid faces.
+        Dimensions are defined in terms of the (partial) regular polygons formed by the object in the x-y and x-z planes.
+
+        Args:
+            nr_sides (int): number of sides of base polygon (top-view)
+            nr_layers (int): number of sides of vertical polygon (side-view)
+            side_length (float, optional): length of sides of base polygon. 
+                                           User should provide value for either side_length or radius, not neither or both. 
+                                           Defaults to None.
+            radius (float, optional): circumscribed radius of base polygon. 
+                                      User should provide value for either side_length or radius, not neither or both. 
+                                      Defaults to None.
+            height (float, optional): height of the structure, as measured from centre of base polygon to the top. 
+                                      If not given, value is set equal to radius.
+                                      Defaults to None.
+            vertical_radius (float, optional): circumscribed radius of vertical polygon. 
+                                               If not given, value is set equal to radius.
+                                               Defaults to None.
+
+        Raises:
+            Exception: either side_length or radius are required, not neither or both.
+        """
         
-        # ----- MATH VARIABLES ------
+        # ----- MATH ATTRIBUTES ------
         self.NR_SIDES = nr_sides
         self.NR_LAYERS = nr_layers
 
@@ -24,7 +46,7 @@ class Dome:
             raise Exception(f"Either side_length or radius is required, not neither or both (given: {side_length=} {radius=})")
 
         # if not given, assume spherical (H=R=R_PRIME)
-        self.H = height if height else self.R
+        self.H = height if height is not None else self.R
                 
         # centre of base
         self.M1 = (0, 0)
@@ -55,18 +77,41 @@ class Dome:
         self.T2 = np.acos((self.TOP[0] - self.M2[0])/self.R_PRIME)
         self.TD = (self.T2 - self.T1)/self.NR_LAYERS
 
-        # -----
+        # ----- RESULTING ATTRIBUTES -----
         self._verts = self._calc_vertices()
         self._polys = self._calc_polys()
 
-    def __repr__(self):
+    def __repr__(self,):
         return f"""
 Dome(nr_sides = { self.NR_SIDES },
      nr_layers = { self.NR_LAYERS},
      side_length = { self.SIDE_LEN},
      height = {self.H},
-     vertical_radius = {self.R_PRIME}
+     vertical_radius = {self.R_PRIME})
             """
+    
+    def __str__(self,):
+        return f"""
+Dome 
+    Nr of sides : \t{self.NR_SIDES}
+    Nr of layers : \t{self.NR_LAYERS}
+    Side length : \t{self.SIDE_LEN}
+    Vert. side length : {2*self.R_PRIME*np.sin(0.5*self.TD)}
+    Height : \t\t{self.H}
+    Equator radius : \t{self.R}
+    Vertical radius : \t{self.R_PRIME}
+        """
+
+    @property
+    def constructive_points(self,) -> tuple:
+        """
+        Points used during construction of object:
+            1. Top
+            2. Point on equator
+            3. Centre point
+            4. Centre of circle defining vertical curvature
+        """
+        return (self.TOP, self.SIDE, self.M1, self.M2)
 
     def _candidate_centres(self, 
                            A : tuple[float, float] = None, 
@@ -133,7 +178,6 @@ Dome(nr_sides = { self.NR_SIDES },
         return self._verts
     
     def _calc_polys(self,):
-        # define polygon faces for the 3D plotter to work with
         polys = np.zeros((self.NR_SIDES*self.NR_LAYERS, 5, 3))
 
         k = 0
@@ -156,6 +200,34 @@ Dome(nr_sides = { self.NR_SIDES },
     def rotate_by_angle(self, angle):
         self._verts = self._calc_vertices(angle)
         self._polys = self._calc_polys()
+
+    def pieces_template_2D(self,):
+        S = 2*self.R_PRIME*np.sin(0.5*self.TD)  # vertical polygon side length
+
+        polys = np.zeros((self.NR_LAYERS, 5, 2))
+        for j in range(self.NR_LAYERS):
+            # working radii
+            rad_1 = self.R - self.R_PRIME*(1 - np.cos(j*self.TD))
+            rad_2 = self.R - self.R_PRIME*(1 - np.cos((j+1)*self.TD))
+
+            # working side lenghts
+            side_len_1 = self.SIDE_LEN*rad_1/self.R
+            side_len_2 = self.SIDE_LEN*rad_2/self.R
+
+            # working apothema
+            apo_1 = j*S
+            apo_2 = (j+1)*S
+            
+            # piece
+            polys[j,:,:] = np.array([[apo_1, -0.5*side_len_1],
+                                     [apo_2, -0.5*side_len_2],
+                                     [apo_2,  0.5*side_len_2],
+                                     [apo_1,  0.5*side_len_1],
+                                     [apo_1, -0.5*side_len_1]])
+        return polys
+
+
+        
     
 if __name__ == '__main__':
     pass
