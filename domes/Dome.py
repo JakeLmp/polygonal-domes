@@ -14,7 +14,7 @@ class Dome:
 
         Args:
             nr_sides (int): number of sides of base polygon (top-view)
-            nr_layers (int): number of sides of vertical polygon (side-view)
+            nr_layers (int): number of stacked polygons (side-view)
             side_length (float, optional): length of sides of base polygon. 
                                            User should provide value for either side_length or radius, not neither or both. 
                                            Defaults to None.
