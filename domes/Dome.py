@@ -260,10 +260,11 @@ Dome
         self._polys = self._calc_polys()
 
     # TODO: fix for vertical_radius != None
-    def pieces_template_2D(self,):
+    def pieces_template_2D(self,) -> tuple[np.array, list]:
         S = 2*self.R_PRIME*np.sin(0.5*self.TD)  # vertical polygon side length
 
         polys = np.zeros((self.NR_LAYERS, 5, 2))
+        side_lengths = []
         for j in range(self.NR_LAYERS):
             # working radii
             rad_1 = self.R - self.R_PRIME*(1 - np.cos(j*self.TD))
@@ -283,7 +284,10 @@ Dome
                                      [apo_2,  0.5*side_len_2],
                                      [apo_1,  0.5*side_len_1],
                                      [apo_1, -0.5*side_len_1]])
-        return polys
+            
+            side_lengths.append(float(side_len_1))
+
+        return polys, side_lengths
 
     
 if __name__ == '__main__':
