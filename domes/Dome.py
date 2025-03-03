@@ -134,6 +134,9 @@ class Dome:
         self._verts = self._calc_vertices()
         self._polys = self._calc_polys()
 
+        self.BASE_ANGLE = 2*np.pi/self.NR_SIDES
+        self.VERT_ANGLE = self.TD
+
     def __repr__(self,):
         return f"""
 Dome(nr_sides = { self.NR_SIDES },
@@ -288,6 +291,24 @@ Dome
             side_lengths.append(float(side_len_1))
 
         return polys, side_lengths
+    
+    @property
+    def area(self,):
+        h = 2*self.R_PRIME*np.sin(self.VERT_ANGLE/2)
+
+        area = 0
+        for i in range(self.NR_LAYERS):
+            A = self._verts[self._idx(i, 0)]
+            B = self._verts[self._idx(i, 1)]
+            C = self._verts[self._idx(i+1, 0)]
+            D = self._verts[self._idx(i+1, 1)]
+            
+            AB = np.linalg.norm(B - A)
+            CD = np.linalg.norm(D - C)
+
+            area += h*(AB + CD)/2
+        
+        return self.NR_SIDES * area
 
     
 if __name__ == '__main__':
